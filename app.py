@@ -1,3 +1,5 @@
+import subprocess
+subprocess.run("playwright install", shell=True)
 from flask import Flask, request, jsonify
 import asyncio
 from playwright.async_api import async_playwright
