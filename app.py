@@ -1,8 +1,6 @@
 import streamlit as st
 import asyncio
 from playwright.async_api import async_playwright
-import json
-import time
 
 st.title("Facebook Auto Messenger (Playwright Version)")
 
@@ -15,10 +13,9 @@ messages_text = st.text_area("Messages (one per line)")
 async def send_messages(chat_id, messages, delay, cookies_raw):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-
         context = await browser.new_context()
 
-        # Add cookies if provided
+        # Add cookies
         if cookies_raw.strip():
             cookies_list = []
             for c in cookies_raw.split(";"):
@@ -33,19 +30,17 @@ async def send_messages(chat_id, messages, delay, cookies_raw):
             await context.add_cookies(cookies_list)
 
         page = await context.new_page()
+        await page.goto(f"https://www.facebook.com/messages/t/{chat_id}", wait_until="networkidle")
 
-        # Open chat page
-        await page.goto(f"https://www.facebook.com/messages/t/{chat_id}")
-
-        await page.wait_for_timeout(5000)
+        await page.wait_for_timeout(4000)
 
         for msg in messages:
             try:
-                # Message input box
-                box = await page.wait_for_selector("div[contenteditable='true']", timeout=15000)
+                # TRUE facebook messenger input box (tested)
+                box = await page.wait_for_selector("div[role='textbox']", timeout=20000)
 
                 await box.click()
-                await box.type(msg)
+                await box.type(msg, delay=30)
                 await box.press("Enter")
 
                 st.write(f"Sent: {msg}")
@@ -57,7 +52,7 @@ async def send_messages(chat_id, messages, delay, cookies_raw):
         await browser.close()
 
 
-# Start Button
+# Run automation
 if st.button("Start Automation"):
     if not chat_id or not messages_text:
         st.error("Chat ID aur messages dono chahiye.")
