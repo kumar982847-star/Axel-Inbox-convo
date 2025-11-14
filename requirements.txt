@@ -1,4 +1,3 @@
+flask
 playwright
 asyncio
-greenlet==2.0.2
-
