@@ -1,68 +1,56 @@
-import streamlit as st
+import os
+from flask import Flask, request
 import asyncio
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, Browser
 
-st.title("Facebook Auto Messenger (Playwright Version)")
+app = Flask(__name__)
+browser_instance: Browser = None
 
-chat_id = st.text_input("Chat / Conversation ID")
-delay = st.number_input("Delay (seconds)", min_value=5, max_value=600, value=30)
-cookies_text = st.text_area("Facebook Cookies (Paste RAW cookies here)")
-messages_text = st.text_area("Messages (one per line)")
-
-
-async def send_messages(chat_id, messages, delay, cookies_raw):
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
-
-        # Add cookies
-        if cookies_raw.strip():
-            cookies_list = []
-            for c in cookies_raw.split(";"):
-                if "=" in c:
-                    name, value = c.split("=", 1)
-                    cookies_list.append({
-                        "name": name.strip(),
-                        "value": value.strip(),
-                        "domain": ".facebook.com",
-                        "path": "/"
-                    })
-            await context.add_cookies(cookies_list)
-
-        page = await context.new_page()
-        await page.goto(f"https://www.facebook.com/messages/t/{chat_id}", wait_until="networkidle")
-
-        await page.wait_for_timeout(4000)
-
-        for msg in messages:
-            try:
-                # TRUE facebook messenger input box (tested)
-                box = await page.wait_for_selector("div[role='textbox']", timeout=20000)
-
-                await box.click()
-                await box.type(msg, delay=30)
-                await box.press("Enter")
-
-                st.write(f"Sent: {msg}")
-                await page.wait_for_timeout(delay * 1000)
-
-            except Exception as e:
-                st.error(f"Error sending message: {e}")
-
-        await browser.close()
+async def get_browser():
+    global browser_instance
+    if browser_instance is None:
+        pw = await async_playwright().start()
+        browser_instance = await pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox"]
+        )
+    return browser_instance
 
 
-# Run automation
-if st.button("Start Automation"):
-    if not chat_id or not messages_text:
-        st.error("Chat ID aur messages dono chahiye.")
-        st.stop()
+@app.route("/")
+def home():
+    return "Server OK | Playwright Ready"
 
-    messages = messages_text.strip().split("\n")
-    cookies = cookies_text.strip()
 
-    st.write("⏳ Starting automation...")
+@app.route("/send", methods=["POST"])
+async def send_msg():
+    data = request.json
 
-    asyncio.run(send_messages(chat_id, messages, delay, cookies))
+    cookies = data.get("cookies")
+    hater_name = data.get("hater_name")
+    thread_id = data.get("thread_id")
+    message = data.get("message")
 
-    st.success("✅ Automation Completed!")
+    if not cookies or not message:
+        return {"error": "Missing Required Fields"}, 400
+
+    browser = await get_browser()
+    page = await browser.new_page()
+
+    # Load cookies
+    await page.context.add_cookies(cookies)
+
+    # Go to Facebook
+    await page.goto("https://www.facebook.com/messages/t/" + thread_id)
+
+    # →→ TU APNA SEND MESSAGE KA CODE YAHA DAL SAKTA HAI ←←
+
+    # Example:
+    await page.fill("div[aria-label='Message']", message)
+    await page.keyboard.press("Enter")
+
+    return {"status": "Message Sent!", "to": hater_name}
+    
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
