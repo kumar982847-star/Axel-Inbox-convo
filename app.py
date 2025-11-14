@@ -1,5 +1,6 @@
 import subprocess
-subprocess.run("playwright install", shell=True)
+subprocess.run("python -m playwright install", shell=True)
+
 from flask import Flask, request, jsonify
 import asyncio
 from playwright.async_api import async_playwright
@@ -40,7 +41,6 @@ async def send_messages(chat_id, messages, delay, cookies_raw):
 
         await browser.close()
 
-
 @app.route("/send", methods=["POST"])
 def send():
     data = request.json
@@ -53,13 +53,11 @@ def send():
     asyncio.run(send_messages(chat_id, messages, delay, cookies))
     return jsonify({"status": "done", "messages_sent": len(messages)})
 
-
 @app.route("/")
 def home():
     return "Facebook Auto Message Server Running"
 
-
 if __name__ == "__main__":
     import os
-port = int(os.environ.get("PORT", 10000))
-app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
